@@ -1,7 +1,9 @@
 import os
 import re
+import subprocess
 import sys
 import logging
+import time
 
 # Set up logging to write log entries to a file
 log_file_path = "/mnt/c/Users/gideo/OneDrive/Documents/515R/logfile.log"  # Modify this path as needed
@@ -96,17 +98,15 @@ def check_commented_lines(file_path):
         with open(file_path, "r") as file:
             lines = file.readlines()  # Read all lines from the file
 
-        commented_lines = []  # List to hold commented-out lines
-        for line in lines:
-            line = line.strip()  # Remove leading/trailing spaces
-            if line.startswith("#"):  # Check if the line is commented out
-                commented_lines.append(line)  # Add to the list
+        commented_lines = [line.strip() for line in lines if line.strip().startswith("#")]
 
-        # Print the commented-out lines, if any
         if commented_lines:
             print("[INFO] Found commented-out lines:")
-            for line in commented_lines:
-                print(f"  {line}")
+            # Join all lines into a string and pass to 'less'
+            #print("\n[INFO] Opening results in 'less'. Use ↑ ↓ to scroll, 'q' to quit.", flush=True)  # <-- Add this line
+            #time.sleep(0.2)
+            output = "\n".join(commented_lines)
+            subprocess.run(["less"], input=output.encode(), check=True)
         else:
             print("[INFO] No commented-out lines found.")  # If no commented lines
 
@@ -129,7 +129,7 @@ def user_prompt():
         try:
             print("\nChoose an action:")
             print("1. Run entire scan for security risks")
-            print("2. Check for commented-out settings")
+            print("2. Check for commented-out settings(Note: OPENS FILE IN LESS. 'q' to quit)")
             print("3. Exit")
             
             choice = input("Enter your choice (1, 2, or 3): ")
