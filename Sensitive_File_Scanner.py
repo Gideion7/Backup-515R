@@ -3,10 +3,11 @@ import re
 import subprocess
 import sys
 import logging
-import time
+#import time
 
 # Set up logging to write log entries to a file
-log_file_path = "/mnt/c/Users/gideo/OneDrive/Documents/515R/logfile.log"  # Modify this path as needed
+#log_file_path = "/home/blueteam/logfile.log"  # Modify this path as needed
+log_file_path = "/mnt/c/Users/gideion7/Downloads/logfile.log"  # Modify this path as needed
 logging.basicConfig(filename=log_file_path, 
                     level=logging.DEBUG,  # Log everything from DEBUG level and higher
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -65,6 +66,8 @@ def scan_security_risks(file_path, risky_settings):
         with open(file_path, "r") as file:
             lines = file.readlines()  # Read all lines from the file
 
+        found_risks = False  # Track if we found any risky settings
+
         # Check each line for risky settings
         for line in lines:
             line = line.strip()  # Remove leading/trailing spaces
@@ -74,6 +77,12 @@ def scan_security_risks(file_path, risky_settings):
                     warning_message = f"[WARNING] {setting} is set to '{risky_value}' which may be insecure."
                     print(f"\033[91m{warning_message}\033[0m")  # Print warning in red
                     logging.warning(warning_message)  # Log the warning
+                    found_risks = True
+        
+        if not found_risks:
+            message = "[INFO] No risky SSH settings were found. Your config looks secure!"
+            print(f"\033[92m{message}\033[0m")  # Print message in green
+            logging.info(message)  # Log the message
 
         print("[INFO] Scan complete.")  # Print info when the scan is complete
     
@@ -98,6 +107,7 @@ def check_commented_lines(file_path):
         with open(file_path, "r") as file:
             lines = file.readlines()  # Read all lines from the file
 
+        # Create a list of all lines that are commented out (start with '#'), removing leading/trailing whitespace
         commented_lines = [line.strip() for line in lines if line.strip().startswith("#")]
 
         if commented_lines:
@@ -105,8 +115,8 @@ def check_commented_lines(file_path):
             # Join all lines into a string and pass to 'less'
             #print("\n[INFO] Opening results in 'less'. Use ↑ ↓ to scroll, 'q' to quit.", flush=True)  # <-- Add this line
             #time.sleep(0.2)
-            output = "\n".join(commented_lines)
-            subprocess.run(["less"], input=output.encode(), check=True)
+            output = "\n".join(commented_lines) #  # Join all the commented lines into a single string separated by newline characters
+            subprocess.run(["less"], input=output.encode(), check=True) # # Open a subprocess running the 'less' pager and pipe the output into it for viewing
         else:
             print("[INFO] No commented-out lines found.")  # If no commented lines
 
@@ -119,6 +129,52 @@ def check_commented_lines(file_path):
         print(f"\033[93m{error_message}\033[0m")  # Print error in yellow
         logging.error(f"{error_message} {e}")  # Log the error
 
+def detect_missing_secure_settings(file_path):
+    """Detect secure SSH settings that are commented out or missing entirely."""
+    required_settings = [
+        "Port",
+        "PubkeyAuthentication",
+        "PermitEmptyPasswords",
+        "PasswordAuthentication",
+        "PermitRootLogin",
+        "AllowUsers",
+        "Protocol"
+    ]
+
+    try:
+        if not check_file_exists(file_path):
+            return
+
+        print(f"[INFO] Checking {file_path} for missing or commented-out secure settings...")
+
+        with open(file_path, "r") as file:
+            lines = file.readlines()
+
+        present_settings = set()
+        for line in lines:
+            line = line.strip()
+            if line.startswith("#") or not line:
+                continue  # Skip commented or empty lines
+            for setting in required_settings:
+                if line.startswith(setting):
+                    present_settings.add(setting)
+
+        missing_or_commented = [s for s in required_settings if s not in present_settings]
+
+        if missing_or_commented:
+            print(f"\033[91m[WARNING] The following secure SSH settings are missing or commented out:\033[0m")
+            for setting in missing_or_commented:
+                print(f"\033[91m - {setting} is not actively set\033[0m")
+            print("\n[INFO] Please consider editing the sshd_config file to include these settings with secure values.")
+        else:
+            print(f"\033[92m[INFO] All required SSH settings are actively set in the config.\033[0m")
+
+    except Exception as e:
+        error_message = f"[ERROR] Unexpected error while checking secure settings: {e}"
+        print(f"\033[93m{error_message}\033[0m")
+        logging.error(error_message)
+
+
 # Function to prompt the user for an action
 def user_prompt():
     """Prompt the user for the next action."""
@@ -130,9 +186,11 @@ def user_prompt():
             print("\nChoose an action:")
             print("1. Run entire scan for security risks")
             print("2. Check for commented-out settings(Note: OPENS FILE IN LESS. 'q' to quit)")
-            print("3. Exit")
+            print("3. Detect Basic Secure SSH settings")
+            print("4. Open sshd_config in nano")
+            print("5. Exit")
             
-            choice = input("Enter your choice (1, 2, or 3): ")
+            choice = input("Enter your choice (1, 2, 3, 4, or 5): ")
 
             if choice == "1":
                 risky_settings = {  # Define risky settings to check in sshd_config
@@ -157,11 +215,16 @@ def user_prompt():
             elif choice == "2":
                 check_commented_lines("/etc/ssh/sshd_config")  # Check for commented-out settings
             elif choice == "3":
-                print("Exiting program. Goodbye!")  # Print exit message
-                logging.info("User chose to exit the program.")  # Log this action
+                detect_missing_secure_settings("/etc/ssh/sshd_config")
+            elif choice == "4":
+                print("[INFO] Opening /etc/ssh/sshd_config in nano editor. Press Ctrl+X to exit.")
+                subprocess.run(["nano", "/etc/ssh/sshd_config"])
+            elif choice == "5":
+                print("Exiting program. Goodbye!")
+                logging.info("User chose to exit the program.")
                 break
             else:
-                error_message = "[ERROR] Invalid input! Please choose 1, 2, or 3."
+                error_message = "[ERROR] Invalid input! Please choose 1, 2, 3, 4, or 5."
                 print(f"\033[93m{error_message}\033[0m")  # Print error in yellow
                 logging.error(error_message)  # Log the error
 
