@@ -6,8 +6,8 @@ import logging
 #import time
 
 # Set up logging to write log entries to a file
-#log_file_path = "/home/blueteam/logfile.log"  # Modify this path as needed
-log_file_path = "/mnt/c/Users/gideion7/Downloads/logfile.log"  # Modify this path as needed
+log_file_path = "/var/log/logfile.log"  # Modify this path as needed
+#log_file_path = "/mnt/c/Users/gideion7/Downloads/logfile.log"  # Modify this path as needed
 logging.basicConfig(filename=log_file_path, 
                     level=logging.DEBUG,  # Log everything from DEBUG level and higher
                     format='%(asctime)s - %(levelname)s - %(message)s')
